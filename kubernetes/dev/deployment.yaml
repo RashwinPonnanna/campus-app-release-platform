@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: campus-app
+  namespace: dev
+  labels:
+    app: campus-app
+    environment: dev
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: campus-app
+  template:
+    metadata:
+      labels:
+        app: campus-app
+        environment: dev
+    spec:
+      containers:
+        - name: campus-app
+          image: <ECR_REPO_URL>:latest   # Jenkins overwrites this tag on each deploy via kubectl set image
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - secretRef:
+                name: campus-app-secrets   # secrets live outside source code, applied separately
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
