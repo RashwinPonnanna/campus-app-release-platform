@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION   = "ap-south-1"
-        ECR_REPO     = "<ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/campus-app"
+        ECR_REPO     = "395671099988.dkr.ecr.ap-south-1.amazonaws.com/campus-app"
         SHORT_COMMIT = "${env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'local'}"
         IMAGE_TAG    = "${env.BUILD_NUMBER}-${SHORT_COMMIT}"
     }
@@ -38,6 +38,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 sh "docker build -f docker/Dockerfile -t ${ECR_REPO}:${IMAGE_TAG} ."
+                sh "docker tag ${ECR_REPO}:${IMAGE_TAG} ${ECR_REPO}:latest"
             }
         }
 
@@ -47,6 +48,7 @@ pipeline {
                     aws ecr get-login-password --region ${AWS_REGION} | \
                     docker login --username AWS --password-stdin ${ECR_REPO}
                     docker push ${ECR_REPO}:${IMAGE_TAG}
+                    docker push ${ECR_REPO}:latest
                 """
             }
         }
@@ -54,8 +56,8 @@ pipeline {
         stage('Deploy to Dev') {
             steps {
                 sh """
-                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n dev --record
-                    kubectl rollout status deployment/campus-app -n dev --timeout=90s
+                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n dev
+                    kubectl rollout status deployment/campus-app -n dev --timeout=120s
                 """
             }
         }
@@ -63,8 +65,8 @@ pipeline {
         stage('Deploy to Staging') {
             steps {
                 sh """
-                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n staging --record
-                    kubectl rollout status deployment/campus-app -n staging --timeout=90s
+                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n staging
+                    kubectl rollout status deployment/campus-app -n staging --timeout=120s
                 """
             }
         }
@@ -87,8 +89,8 @@ pipeline {
         stage('Deploy to Production') {
             steps {
                 sh """
-                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n production --record
-                    kubectl rollout status deployment/campus-app -n production --timeout=120s
+                    kubectl set image deployment/campus-app campus-app=${ECR_REPO}:${IMAGE_TAG} -n production
+                    kubectl rollout status deployment/campus-app -n production --timeout=180s
                 """
             }
         }
@@ -114,6 +116,7 @@ pipeline {
         }
         always {
             sh "docker rmi ${ECR_REPO}:${IMAGE_TAG} || true"
+            sh "docker rmi ${ECR_REPO}:latest || true"
         }
     }
 }

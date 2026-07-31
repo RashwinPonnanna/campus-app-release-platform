@@ -22,14 +22,16 @@ spec:
         app: campus-app
         environment: dev
     spec:
+      imagePullSecrets:
+        - name: ecr-secret
       containers:
         - name: campus-app
-          image: <ECR_REPO_URL>:latest   # Jenkins overwrites this tag on each deploy via kubectl set image
+          image: 395671099988.dkr.ecr.ap-south-1.amazonaws.com/campus-app:latest
           ports:
             - containerPort: 8080
           envFrom:
             - secretRef:
-                name: campus-app-secrets   # secrets live outside source code, applied separately
+                name: campus-app-secrets
           resources:
             requests:
               cpu: "100m"
